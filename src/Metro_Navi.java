@@ -1,6 +1,4 @@
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.*;
 import java.util.*;
 import java.sql.*;
 
@@ -11,7 +9,7 @@ class subwayData {
     int lineId; //호선
     int typeName;   //급행역 여부
     boolean transfer;   //환승역 여부
-    int direction;  //진행 방향
+    int lineDirection;  //진행 방향
     int beforeStation;  //이전 역
     int nextStation;    //다음 역
     int duration;   //해댱역 소요시간
@@ -22,29 +20,93 @@ class subwayData {
     String arrivalTime; //도착 시간
     String congestion;  //혼잡도
 
+
     void getScheduleData(int hour, int minute, String weekType) {
         databaseManager dbManager = new databaseManager();
         dbManager.getScheduleData(stationDetailId, weekType, hour, minute);
     }
 }
 
+/*트리 클래스*/
 class Tree {
+    Node root = new Node(); //트리의 root 노드
+    Node parent;
+    Node grandParent;
+    String departureStaionName; //출발역 이름
+    String destinationStationName;  //도착역 이름
+    int hour, minute;
+    String weekType;
+    String[] shortestTime = new String[1091];   //역까지 최단 시간
+    ArrayList<Node> path = new ArrayList<>();   //도착역에 도착한 leafNode들
+
+    /*노드 클래스*/
     class Node {
+        Stack<subwayData> step = new Stack<subwayData>();   //중간 정류장
         subwayData data = new subwayData(); //데이터
+        Node beforeNode = new Node();   //부모 노드
         ArrayList<Node> child = new ArrayList<Node>();    //자식 노드
     }
 
+    void makeTree() {
+        makeNode()
 
-
-    Node makeNode(subwayData nodeData) {
-        Node node = new Node();
-        node.data = nodeData;
-        return node;
     }
+    /*void makeRoot(String departureStation)
+    * 루트 노드를 생성한 후 출발역과 연결된 경로를 자식노드로 추가함
+    *
+    * 입력
+    * - departureStationName : 출발역 이름*/
+    void makeRoot(String departureStationName) {
+        databaseManager dbManager = new databaseManager();
+        ArrayList<subwayData> subData = new ArrayList<subwayData>();    //경로 저장하는 ArrayList
+        subData = dbManager.getStationData(departureStationName);   //출발역과 연결된 경로 정보 가져옴
+        int i = 0;
+        while(i < subData.size()) { //가져온 경로의 수만큼
+            Node tempNode = new Node(); //노드 생성
+            makeNode(tempNode, subData.get(i));    //노드에 정보 입력
+            addChild(root, tempNode);
+            i++;
+        }
+        grandParent = root;
+        parent = root;
+    }
+
+    /*Node makeNode(Node tempNode, subwayData nodeData)
+    * 노드에 데이터를 입력함
+    *
+    * 입력
+    * - tempNode : 데이터를 입력하고자 하는 노드
+    * - nodeData : 입력하려는 데이터*/
+    void makeNode(Node tempNode, subwayData nodeData) {
+        tempNode.data = nodeData;
+        if(tempNode.data.lineDirection == 1) {
+            subwayData temp = addUpStep(tempNode.step, tempNode.data.stationDetailId);
+        }
+    }
+
+    /*void addChild(Node parentNode, Node childNode)
+    * 부모노드에 자식노드 추가
+    *
+    * 입력
+    * - parentNode : 부모 노드
+    * - childNode : 자식 노드*/
     void addChild(Node parentNode, Node childNode) {
+        childNode.beforeNode = parentNode;
         parentNode.child.add(childNode);
     }
 
+    /*void addStep(Node tempNode, int stationDetailId)
+    *
+    * 입력
+    * - tempNode : 데이터를 넣으려는 노드
+    * - stationDetailId : 경로의 station_detail_id*/
+    void addUpStep(Stack<subwayData> step, int stationDetailId) {
+        databaseManager dbManager = new databaseManager();
+        subwayData tempStation = dbManager.getStationData(stationDetailId);
+    }
+    void addDownStep(Stack<subwayData> step, int stationDetailId) {
+
+    }
 
 }
 
@@ -96,12 +158,69 @@ class databaseManager {
         }
         return station;
     }
+    subwayData getStationData(int stationDetailId) {
+        Connection conn = connectDatabase();
+        subwayData station = new subwayData();
+
+        return station;
+    }
+
     void getTransferData() {
 
     }
 
-    void getConnectStationData() {
+    subwayData getUpConnectStationData(int stationDetailId) {
+        Connection conn = connectDatabase();
+        subwayData station = new subwayData();
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+            Statement stmt = conn.createStatement();
+            String strQuery;
+            strQuery = String.format("SELECT station_detail_id, station_name, station_code, line_id, before_station, next_station, " +
+                    "station_id FROM Subway.sub_line_name_info WHERE before_station = %d", stationDetailId);
+            java.sql.ResultSet resultSet = stmt.executeQuery(strQuery);
+            while(resultSet.next()) {
+                station.stationName = resultSet.getString("station_name");
+                station.stationCode = resultSet.getString("station_code");
+                station.stationDetailId = resultSet.getInt("station_detail_id");
+                station.lineId = resultSet.getInt("line_id");
+                station.beforeStation = resultSet.getInt("before_station");
+                station.nextStation = resultSet.getInt("next_station");
+            }
+            //System.out.println("DB 연결 성공");
+        } catch (ClassNotFoundException e) {
+            System.out.println("드라이버 로드 에러");
+        } catch (SQLException e) {
+            System.out.println("DB 연결 에러");
+        }
+        return station;
+    }
 
+    subwayData getDownConnectStationData(int stationDetailId) {
+        Connection conn = connectDatabase();
+        subwayData station = new subwayData();
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+            Statement stmt = conn.createStatement();
+            String strQuery;
+            strQuery = String.format("SELECT station_detail_id, station_name, station_code, line_id, before_station, next_station, " +
+                    "station_id FROM Subway.sub_line_name_info WHERE next_station = %d", stationDetailId);
+            java.sql.ResultSet resultSet = stmt.executeQuery(strQuery);
+            while(resultSet.next()) {
+                station.stationName = resultSet.getString("station_name");
+                station.stationCode = resultSet.getString("station_code");
+                station.stationDetailId = resultSet.getInt("station_detail_id");
+                station.lineId = resultSet.getInt("line_id");
+                station.beforeStation = resultSet.getInt("before_station");
+                station.nextStation = resultSet.getInt("next_station");
+            }
+            //System.out.println("DB 연결 성공");
+        } catch (ClassNotFoundException e) {
+            System.out.println("드라이버 로드 에러");
+        } catch (SQLException e) {
+            System.out.println("DB 연결 에러");
+        }
+        return station;
     }
 
     void getScheduleData(int stationDetailId, String weekType, int hour, int minute) {
@@ -139,6 +258,7 @@ class timeAndDate {
     }
 
 }
+
 public class Metro_Navi {
     public static void main(String[] args) {
         databaseManager dbManager = new databaseManager();
@@ -148,15 +268,13 @@ public class Metro_Navi {
         System.out.print("출발역, 도착역, 시, 분, 요일 : ");
         Scanner input = new Scanner(System.in);
 
-        String departureStation = input.next();
-        String destinationStation = input.next();
-        int hour = Integer.parseInt(input.next());
-        int minute = Integer.parseInt(input.next());
-        String weekType = input.next();
-        System.out.println(departureStation + ' ' + destinationStation + ' ' + hour + ' ' + minute + ' ' + weekType);
+        tree.departureStaionName = input.next();
+        tree.destinationStationName = input.next();
+        tree.hour = Integer.parseInt(input.next());
+        tree.minute = Integer.parseInt(input.next());
+        tree.weekType = input.next();
 
-        dbManager.getStationData(departureStation);
-        dbManager.getStationData(destinationStation);
+        tree.makeTree();
     }
 }
 
