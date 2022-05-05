@@ -5,13 +5,13 @@ import java.sql.*;
 class subwayData {
 
     timeTable schedule = new timeTable();
-    path path = new path();
+    path pathInfo = new path();
     String stationName; //역 이름
     String stationCode; //역 코드
     int stationDetailId;    //station_detail_id
     int lineId; //호선
     boolean transfer;   //환승역 여부
-
+    int stationId;
     int beforeStation;  //이전 역
     int nextStation;    //다음 역
 
@@ -21,19 +21,18 @@ class subwayData {
     
 }
 class path {
-    int duration;
-    int transferNum;
-    int numStep;
+    int duration;   //소요 시간
+    int transferNum;    //환승 횟수
+    int numStep;    //정류장 수
 }
 
 class timeTable {
-    int stationDetailId;
-    int lineDirection;
-    int hour;
-    int minute;
-    String weekType;
-    String scheduleName;
-    String typeName;
+    int lineDirection;  //진행 방향
+    int hour;   //출발 시각(시)
+    int minute; //출발 시각(분)
+    String weekType;    //요일
+    String scheduleName;    //종착 지점
+    String typeName;    //열차 종류
 }
 
 /*노드 클래스*/
@@ -47,31 +46,51 @@ class Node {
 /*트리 클래스*/
 class Tree {
     Node root = new Node(); //트리의 root 노드
-    //Node parent;
-    //Node grandParent;
     String departureStaionName; //출발역 이름
     String destinationStationName;  //도착역 이름
     int startHour, startMinute;
     String weekType;
-    String[] shortestTime = new String[1091];   //역까지 최단 시간
+    int[] shortestTime = new int[1091];   //역까지 최단 시간
     ArrayList<Node> path = new ArrayList<>();   //도착역에 도착한 leafNode들
     databaseManager dbManager = new databaseManager();
+    Queue<Node> queue = new LinkedList<>(); //넓이우선탐색 할 때 쓸 큐
 
      /*void initRoot()
      * root노드 정보 업데이트*/
     void initRoot() {
         root.data.schedule.hour = startHour; //root 노드의 시간을 출발시각으로 업데이트
         root.data.schedule.minute = startMinute; //출발 시각으로 업데이트
-        root.data.path.duration = 0; //
-        root.data.path.transferNum = 0;
-        root.data.path.numStep = 0;
+        root.data.pathInfo.duration = 0; //
+        root.data.pathInfo.transferNum = 0;
+        root.data.pathInfo.numStep = 0;
         root.data.schedule.weekType = weekType;
+        Arrays.fill(shortestTime, Integer.MAX_VALUE);
     }
 
-    int compareShortestTime() {
-        int reult = 0;
+    int convertTime(int hour, int minute) {
+        int num = hour * 60 + minute;
+        return num;
+    }
 
-        return reult;
+    void updateSchedule(subwayData parent, subwayData child) {
+
+    }
+
+    /*boolean conpareShortestTime(subwayData data)
+    *
+    * 출력
+    * - boolean result : result = true -> 갱신, result = false -> 유지*/
+    boolean compareShortestTime(subwayData data) {
+        boolean result = true;
+        int convertTime = convertTime(data.schedule.hour, data.schedule.minute);
+        if(shortestTime[data.stationId] > convertTime) {
+            shortestTime[data.stationId] = convertTime;
+            return result;
+        }
+        else {
+            result = false;
+            return result;
+        }
     }
 
     /*void updateSchedule(Node parent, Node child)
@@ -80,7 +99,7 @@ class Tree {
     *   시간표 입력 AND return 0;
     * else
     *   return 1*/
-    int updateSchedule(subwayData parent, subwayData child) {
+    int getScheduleData(subwayData parent, subwayData child) {
         ArrayList<timeTable> schedules;
         schedules = dbManager.getScheduleDataDB(parent, child);
         try {
@@ -88,17 +107,21 @@ class Tree {
             return 0;
         }
         catch (IndexOutOfBoundsException e){
+            System.out.println("이새끼");
             return 1;
         }
     }
 
-    void makeTree(Node parent, String stationName) {
-        ArrayList<subwayData> possiblePath = getStationData(stationName);
+    /*void makeRoot(Node parent, String stationName)
+    * */
+    void makeRoot(Node parent, String stationName) {
+        ArrayList<subwayData> possiblePath = getStationDataWithName(stationName);
         int i = 0;
         int count;
         while (i < possiblePath.size()) {
-            parent.child.add(makeNode(possiblePath.get(i)));
-            count = updateSchedule(parent.data, parent.child.get(i).data);
+            Node child = makeNode(possiblePath.get(i));
+            addChild(parent, child);
+            count = getScheduleData(parent.data, child.data);
             if(count == 1) {
                 parent.child.remove(i);
                 possiblePath.remove(i);
@@ -109,7 +132,19 @@ class Tree {
         }
         int j = 0;
         while(j < parent.child.size()) {
+            makeSubTree(parent.child.get(j));
+            j++;
+        }
+    }
 
+    /*void makeSubTree(Node parent)
+    * */
+    void makeSubTree(Node parent) {
+        int i = 0;
+        if (parent.data.schedule.lineDirection == 1) {
+            addPath(parent,searchUpStep(parent, parent.data.beforeStation));
+        } else {
+            addPath(parent,searchDownStep(parent, parent.data.nextStation));
         }
     }
 
@@ -128,14 +163,14 @@ class Tree {
         return newStation;
     }
 
-    /*makePath(subwayData newData)
+/*    *//*makePath(subwayData newData)
     * 새로운 노드 생성
     * 매개변수로 입력 받은 데이터를 새 노드에 복사
     * 다음 환승역까지 중간 경로 탐색
     * 환승역을 발견하면 현재 노드의 자식으로 추가하고 종료
     *
     * 입력
-    * - newData : 노드에 입력하려는 데이터*/
+    * - newData : 노드에 입력하려는 데이터*//*
     void makePath(subwayData newData) {
         Node newStation = new Node();   //새로운 노드 할당
         newStation.data = newData;  //노드에 데이터 복사
@@ -145,7 +180,7 @@ class Tree {
         else {  //lineDirection = 0 -> 하행선
             searchDownStep(newStation, newStation.data.nextStation);    //nextStaion으로 검색
         }
-    }
+    }*/
 
     /*ArrayList getStationData(String stationName)
     * 역 이름으로 해당 역에서 갈 수 있는 역 탐색
@@ -154,9 +189,9 @@ class Tree {
     * - stationName : 검색하려는 역 이름
     * 출력
     * - searchPossiblePath()를 통해 반환된 상,하행으로 분류된 경로*/
-    ArrayList getStationData(String stationName) {
+    ArrayList getStationDataWithName(String stationName) {
            ArrayList<subwayData> station = new ArrayList<>();
-           station = dbManager.getStationDataDB(stationName); //역 이름으로 역 검색
+           station = dbManager.getStationDataWithNameDB(stationName); //역 이름으로 역 검색
            return searchPossiblePath(station);
     }
 
@@ -167,9 +202,9 @@ class Tree {
     * - stationDetailId : 검색하려는 역 station_detail_id
     * 출력
     * - subwayData station : 검색한 역의 데이터*/
-    subwayData getStationData(int stationDetailId) {
+    subwayData getStationDataWithId(int stationDetailId) {
         subwayData station = new subwayData();
-        station = dbManager.getStationDataDB(stationDetailId);    //station_detail_id로 역 검색
+        station = dbManager.getStationDataWithIdDB(stationDetailId);    //station_detail_id로 역 검색
         return station;
     }
 
@@ -182,10 +217,10 @@ class Tree {
     * - ArrayList<subwayData> possiblePath : 상, 하행으로 분류된 경로*/
     ArrayList searchPossiblePath(ArrayList<subwayData> station) {
         ArrayList<subwayData> possiblePath = new ArrayList<>();
-        subwayData temp = new subwayData();
+        //subwayData temp = new subwayData();
         int i = 0;
         while(i < station.size()) { //station의 수만큼
-            temp = station.get(i);
+            subwayData temp = station.get(i);
             if(temp.nextStation != 0) { //nextStation의 값이 있으면 -> 하행선 경로가 있다
                 subwayData downStation = new subwayData();
                 downStation.stationName = temp.stationName;
@@ -219,7 +254,7 @@ class Tree {
     *
     * 입력
     * Node parent : 부모 노드
-    * - int stationDetailId :
+    * - int stationDetailId : parent의 전 역의 station_detail_id
     * 출력
     * Stack <subwayData> stepPath : 중간 경로를 담은 스택*/
     Stack<subwayData> searchUpStep(Node parent, int stationDetailId) {
@@ -227,14 +262,21 @@ class Tree {
         subwayData temp = new subwayData();
         int nextStationDetailId = stationDetailId;
         while(true) {
-            temp = getStationData(nextStationDetailId);
-            if(checkTransfer(temp.stationCode)) {
+            temp = getStationDataWithId(nextStationDetailId);
+            if(checkTransfer(temp.stationName)) {
+                getScheduleData(parent.data, temp);
                 addChild(parent, makeNode(temp));
                 break;
             }
             else {
+                getScheduleData(parent.data, temp);
                 stepPath.push(temp);
-                nextStationDetailId = temp.stationDetailId;
+                if (temp.beforeStation == 0) {
+                    break;
+                }
+                    else{
+                    nextStationDetailId = temp.beforeStation;
+                }
             }
         }
         return stepPath;
@@ -247,14 +289,20 @@ class Tree {
         subwayData temp = new subwayData();
         int nextStationDetailId = stationDetailId;
         while(true) {
-            temp = getStationData(nextStationDetailId);
-            if(checkTransfer(temp.stationCode)) {
+            temp = getStationDataWithId(nextStationDetailId);
+            if(checkTransfer(temp.stationName)) {
+                getScheduleData(parent.data, temp);
                 addChild(parent, makeNode(temp));
                 break;
             }
             else {
+                getScheduleData(parent.data, temp);
                 stepPath.push(temp);
-                nextStationDetailId = temp.stationDetailId;
+                if (temp.nextStation == 0) {
+                    break;
+                } else {
+                    nextStationDetailId = temp.nextStation;
+                }
             }
         }
         return stepPath;
@@ -272,16 +320,28 @@ class Tree {
     }
 
     /*int checkTransfer(int stationCode)
-    * stationCode로 검색해서 결과가 2개 이상이면 환승역으로 판단
+    * stationName으로 검색해서 결과가 2개 이상이면 환승역으로 판단
     *
     * 입력
-    * - int stationCode : 역 코드
+    * - int stationName :  검색하려는 역 이름
     * 출력
-    * - boolean result : 1 -> 환승역, 0 -> 환승역 아님*/
-    boolean checkTransfer(String stationCode) {
-        boolean result = true;
-
+    * - boolean result : true -> 환승역, false -> 환승역 아님*/
+    boolean checkTransfer(String stationName) {
+        boolean result = false;
+        if(dbManager.getStationDataWithNameDB(stationName).size() > 1) {
+            result = true;
+        }
         return result;
+    }
+
+    /*void addPath(Node temp, Stack<subwayData> stepPath
+    * 입력으로 받은 중간노드 queue를 node의 queue에 복사
+    *
+    * 입력
+    * - Node temp : 경로를 복사할 노드
+    * - Stack<subwayData> stepPath : 복사할 경로로*/
+    void addPath(Node temp, Stack<subwayData> stepPath) {
+        temp.step.addAll(stepPath);
     }
 }
 
@@ -307,7 +367,7 @@ class databaseManager {
         return conn;
     }
 
-    ArrayList getStationDataDB(String stationName) {
+    ArrayList getStationDataWithNameDB(String stationName) {
          Connection conn = connectDatabase();
          ArrayList<subwayData> station = new ArrayList<subwayData>();
         try {
@@ -325,6 +385,7 @@ class databaseManager {
                 temp.lineId = resultSet1.getInt("line_id");
                 temp.beforeStation = resultSet1.getInt("before_station");
                 temp.nextStation = resultSet1.getInt("next_station");
+                temp.stationId = resultSet1.getInt("station_id");
                 station.add(temp);
             }
             //System.out.println("DB 연결 성공");
@@ -336,10 +397,31 @@ class databaseManager {
         return station;
     }
 
-    subwayData getStationDataDB(int stationDetailId) {
+    subwayData getStationDataWithIdDB(int stationDetailId) {
         Connection conn = connectDatabase();
         subwayData station = new subwayData();
-
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+            Statement stmt = conn.createStatement();
+            String strQuery1, strQuery2;
+            strQuery1 = String.format("SELECT station_detail_id, station_name, station_code, line_id, before_station, next_station, " +
+                    "station_id FROM Subway.sub_line_name_info WHERE station_detail_id = %d", stationDetailId);
+            java.sql.ResultSet resultSet1 = stmt.executeQuery(strQuery1);
+            while(resultSet1.next()) {
+                station.stationName = resultSet1.getString("station_name");
+                station.stationCode = resultSet1.getString("station_code");
+                station.stationDetailId = resultSet1.getInt("station_detail_id");
+                station.lineId = resultSet1.getInt("line_id");
+                station.beforeStation = resultSet1.getInt("before_station");
+                station.nextStation = resultSet1.getInt("next_station");
+                station.stationId = resultSet1.getInt("station_id");
+            }
+            //System.out.println("DB 연결 성공");
+        } catch (ClassNotFoundException e) {
+            System.out.println("드라이버 로드 에러");
+        } catch (SQLException e) {
+            System.out.println("DB 연결 에러");
+        }
         return station;
     }
 
@@ -410,8 +492,8 @@ class databaseManager {
             Statement stmt = conn.createStatement();
             String strQuery;
             strQuery = String.format("SELECT station_detail_id, line_direction, subway_type, week_type, schedule_name, hour, minute, line_id " +
-                    "FROM Subway.sub_tt_line_%d WHERE station_detail_id = %d AND hour >= %d AND minute >= %d AND week_type = \'%s\' AND line_direction = %d LIMIT 5",
-                    child.lineId, child.stationDetailId, parent.schedule.hour, parent.schedule.minute, parent.schedule.weekType, parent.schedule.lineDirection);
+                    "FROM Subway.sub_tt_line_%d WHERE station_detail_id = %d AND hour - %d <= 1 AND ((hour * 60 + minute) - (%d * 60 + %d)) >= 0 AND week_type = \'%s\' AND line_direction = %d LIMIT 5",
+                    child.lineId, child.stationDetailId, parent.schedule.hour, parent.schedule.hour, parent.schedule.minute, parent.schedule.weekType, child.schedule.lineDirection);
             System.out.println(strQuery);
             java.sql.ResultSet resultSet = stmt.executeQuery(strQuery);
             while(resultSet.next()) {
@@ -484,6 +566,8 @@ public class Metro_Navi {
         Tree tree = new Tree();
 
 
+        int[] shortestTime = new int[1091];   //역까지 최단 시간
+        Arrays.fill(shortestTime, 1);
 
         System.out.print("출발역, 도착역, 시, 분, 요일 : ");
         Scanner input = new Scanner(System.in);
@@ -495,7 +579,7 @@ public class Metro_Navi {
         tree.weekType = input.next();
 
         tree.initRoot();
-        tree.makeTree(tree.root, tree.departureStaionName);
+        tree.makeRoot(tree.root, tree.departureStaionName);
         System.out.println(tree.departureStaionName);
 
 /*        //subData = dbManager.getStationData(departureStaionName);
