@@ -6,7 +6,7 @@ import java.sql.*;
 class subwayData {
 
     timeTable schedule = new timeTable();
-    path pathInfo = new path();
+    timeTable[] candiSchedule = new timeTable[3];
     String stationName; //역 이름
     String stationCode; //역 코드
     int stationDetailId;    //station_detail_id
@@ -19,13 +19,7 @@ class subwayData {
     String departureTime;   //출발 시간
     String arrivalTime; //도착 시간
     String congestion;  //혼잡도
-    
-}
-/*경로 정보*/
-class path {
-    int duration;   //소요 시간
-    int transferNum;    //환승 횟수
-    int numStep;    //정류장 수
+
 }
 
 /*열차 시간표*/
@@ -36,6 +30,9 @@ class timeTable {
     String weekType;    //요일
     String scheduleName;    //종착 지점
     String typeName;    //열차 종류
+    int duration;   //소요 시간
+    int transferNum;    //환승 횟수
+    int numStep;    //정류장 수
 }
 
 /*노드*/
@@ -66,9 +63,9 @@ class Tree {
         root.data.stationName = departureStaionName;    //출발역
         root.data.schedule.hour = startHour; //출발 시각
         root.data.schedule.minute = startMinute;
-        root.data.pathInfo.duration = 0; //소요 시간
-        root.data.pathInfo.transferNum = 0; //환승 수
-        root.data.pathInfo.numStep = 0; //정거장 수
+        root.data.schedule.duration = 0; //소요 시간
+        root.data.schedule.transferNum = 0; //환승 수
+        root.data.schedule.numStep = 0; //정거장 수
         root.data.schedule.weekType = weekType; //요일
         queue.add(root);    //queue에 root노드 넣음
     }
@@ -94,11 +91,15 @@ class Tree {
     * - subwayData parent : 부모 정보
     * - subwayData child : 자식 정보*/
     void updatePathInfo(subwayData parent, subwayData child) {
-        int beforeTime = convertTime(parent.schedule.hour, parent.schedule.minute); //부모 변환 시간
-        int afterTime = convertTime(child.schedule.hour, child.schedule.minute);    //자식 변환 시간
-        child.pathInfo.duration = afterTime - beforeTime;   //소요 시간
-        child.pathInfo.numStep = parent.pathInfo.numStep + 1;   //정거장 수
-        child.pathInfo.transferNum = parent.pathInfo.transferNum;   //환승 수
+        for (int i = 0; i < 3; i++) {
+            if (parent.candiSchedule[i] != null) {
+                int beforeTime = convertTime(parent.candiSchedule[i].hour, parent.candiSchedule[i].minute); //부모 변환 시간
+                int afterTime = convertTime(child.candiSchedule[i].hour, child.candiSchedule[i].minute);    //자식 변환 시간
+                child.candiSchedule[i].duration = afterTime - beforeTime;   //소요 시간
+                child.candiSchedule[i].numStep = parent.candiSchedule[i].numStep + 1;   //정거장 수
+                child.candiSchedule[i].transferNum = parent.candiSchedule[i].transferNum;   //환승 수
+            }
+        }
     }
 
     /*boolean compareShortestTime(subwayData data)
@@ -145,7 +146,7 @@ class Tree {
     * - true -> 시간표 있음, false -> 시간표 없음*/
     ArrayList getScheduleData(subwayData parent, subwayData child) {
         ArrayList<timeTable> schedules;
-        schedules = dbManager.getScheduleDataDB(parent, child); //parent 이후의 시간에서 child의 시간표를 5개 가져옴
+        schedules = dbManager.getScheduleDataDB(parent, child); //parent 이후의 시간에서 child의 시간표를 3개 가져옴
         try {
             return refineSchedule(schedules);
         }
@@ -195,7 +196,7 @@ class Tree {
                 makeSubTree(parent);  //makeRoot에 넣어서 분기되는 경로 탐색
                 int i = 0;
                 while (i < parent.child.size()) {   //parent.child -> 분기되는 경로 수
-                    Node child = makeRoute(parent.child.get(i), i);  //자식 노드에 경로 하나 끌고 옴
+                    Node child = makeRoute(parent.child.get(i));  //자식 노드에 경로 하나 끌고 옴
                     if (compareShortestTime(child.data)) {  //새로운 경로의 유효성 검증
                         shortestNode[child.data.stationId] = child;
                         queue.add(child);
@@ -218,17 +219,30 @@ class Tree {
     boolean deleteDuplicationPath(subwayData parent, subwayData child) {
         boolean result = false;
         if(parent.lineId == child.lineId) { //parent와 child의 호선이 같으면
-            if(parent.schedule.lineDirection != child.schedule.lineDirection) { //방향이 같으면
+            if(parent.schedule.lineDirection != child.schedule.lineDirection) { //자기가 전에 왔던 경로와 같은지 판단
                 result = true;  //진행
             }
         }
         return result;
     }
 
-    Node cloneNode(subwayData data) {
-        Node newNode = new Node();
-
-        return newNode;
+    /*void updateBestTime(Node station)
+    * 시간표 후보들 중 가장 빠른 것을 결정
+    * */
+    void updateBestTime(subwayData data, ArrayList<timeTable> schedules) {
+        int i = 0;
+        int index = 0;
+        int candiTime = 99999;
+        int temp;
+        while(i <schedules.size()) {
+            temp = convertTime(schedules.get(i).hour, schedules.get(i).minute);
+            if( candiTime < temp) {
+                candiTime = temp;
+                index = i;
+            }
+            i++;
+        }
+        data.schedule = data.candiSchedule[index];
     }
 
     /*void makeSubTree(Node parent)
@@ -245,23 +259,16 @@ class Tree {
             if(!deleteDuplicationPath(parent.data, temp.data)) {
                 //addChild(parent, child);
                 ArrayList<timeTable> schedules = getScheduleData(parent.data, temp.data);
-
                 if (schedules.size() > 0) {
+                    Node child = makeNode(temp.data);
                     int j = 0;
                     while(j < schedules.size()) {
-                        Node child = makeNode(temp.data);
-                        child.data.schedule = schedules.get(j);
-                        addChild(parent,child);
+                        child.data.candiSchedule[j] = schedules.get(j);
                         j++;
                     }
+                    updateBestTime(child.data, schedules);
+                    addChild(parent,child);
                 }
-                else {
-                    //parent.child.remove(i);
-                    //possiblePath.remove(i);
-                }
-            }
-            else {
-                i++;
             }
             i++;
         }
@@ -269,13 +276,13 @@ class Tree {
 
     /*void makeRoute(Node parent)
     * */
-    Node makeRoute(Node parent, int i) {
+    Node makeRoute(Node parent) {
         if (parent.data.schedule.lineDirection == 1) {
             addPath(parent,searchUpStep(parent, parent.data.beforeStation));
         } else {
             addPath(parent,searchDownStep(parent, parent.data.nextStation));
         }
-        return parent.child.get(i);
+        return parent.child.get(0);
     }
 
     /*void makeNode(subwayData newData)
@@ -295,6 +302,7 @@ class Tree {
         newStation.data.lineId = newData.lineId;
         newStation.data.beforeStation = newData.beforeStation;
         newStation.data.nextStation = newData.nextStation;
+        newStation.data.schedule.lineDirection = newData.schedule.lineDirection;
         return newStation;
     }
 
@@ -364,6 +372,20 @@ class Tree {
         return possiblePath;
     }
 
+    void getOneScheduleData(subwayData parent, subwayData child) {
+        for(int i = 0; i < 3; i++) {
+            timeTable schedule;
+            if(parent.candiSchedule[i] != null) {
+                schedule = dbManager.getOneScheduleDataDB(parent, child, i); //parent 이후의 시간에서 child의 시간표를 3개 가져옴
+                try {
+                    child.candiSchedule[i] = schedule;
+                } catch (IndexOutOfBoundsException e) {    //만약 이후 시간표가 없으면 ex)막차 끊김
+                    System.out.println("열차 없음");
+                }
+            }
+        }
+    }
+
     /*Node searchUpStep(int stationDetailId)
     * beforeStation로 상행인 다음 경로들 탐색
     * 만약 환승역을 찾으면 -> 환승역을 현재 노드의 자식으로 추가 -> 반복문 탈출
@@ -381,20 +403,31 @@ class Tree {
             temp = getStationDataWithId(nextStationDetailId);
             temp.schedule.lineDirection = 1;
             if(checkTransfer(temp.stationName)) {
-                getScheduleData(parent.data, temp);
+                getOneScheduleData(parent.data, temp);
                 updatePathInfo(parent.data, temp);
                 addChild(parent, makeNode(temp));
                 break;
             }
             else {
-                getScheduleData(parent.data, temp);
+                getOneScheduleData(parent.data, temp);
                 updatePathInfo(parent.data, temp);
-                stepPath.push(temp);
-                if (temp.beforeStation == 0) {
+                if(temp.stationName.equals(destinationStationName)) {
+                    Node destination = makeNode(temp);
+                    addChild(parent,destination);
+                    destination.isAlive = false;
+                    path.add(destination);
                     break;
                 }
-                    else{
-                    nextStationDetailId = temp.beforeStation;
+                else {
+                    stepPath.push(temp);
+                    if (temp.beforeStation == 0) {
+                        Node end = makeNode(temp);
+                        addChild(parent, makeNode(temp));
+                        end.isAlive = false;
+                        break;
+                    } else {
+                        nextStationDetailId = temp.beforeStation;
+                    }
                 }
             }
         }
@@ -411,19 +444,31 @@ class Tree {
             temp = getStationDataWithId(nextStationDetailId);
             temp.schedule.lineDirection = 0;
             if(checkTransfer(temp.stationName)) {
-                getScheduleData(parent.data, temp);
+                getOneScheduleData(parent.data, temp);
                 updatePathInfo(parent.data, temp);
                 addChild(parent, makeNode(temp));
                 break;
             }
             else {
-                getScheduleData(parent.data, temp);
+                getOneScheduleData(parent.data, temp);
                 updatePathInfo(parent.data, temp);
-                stepPath.push(temp);
-                if (temp.nextStation == 0) {
+                if(temp.stationName.equals(destinationStationName)) {
+                    Node destination = makeNode(temp);
+                    addChild(parent,destination);
+                    destination.isAlive = false;
+                    path.add(destination);
                     break;
-                } else {
-                    nextStationDetailId = temp.nextStation;
+                }
+                else {
+                    stepPath.push(temp);
+                    if (temp.nextStation == 0) {
+                        Node end = makeNode(temp);
+                        addChild(parent, makeNode(temp));
+                        end.isAlive = false;
+                        break;
+                    } else {
+                        nextStationDetailId = temp.nextStation;
+                    }
                 }
             }
         }
@@ -551,59 +596,6 @@ class databaseManager {
 
     }
 
-    subwayData getUpConnectStationDataDB(int stationDetailId) {
-        Connection conn = connectDatabase();
-        subwayData station = new subwayData();
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-            Statement stmt = conn.createStatement();
-            String strQuery;
-            strQuery = String.format("SELECT station_detail_id, station_name, station_code, line_id, before_station, next_station, " +
-                    "station_id FROM Subway.sub_line_name_info WHERE before_station = %d", stationDetailId);
-            java.sql.ResultSet resultSet = stmt.executeQuery(strQuery);
-            while(resultSet.next()) {
-                station.stationName = resultSet.getString("station_name");
-                station.stationCode = resultSet.getString("station_code");
-                station.stationDetailId = resultSet.getInt("station_detail_id");
-                station.lineId = resultSet.getInt("line_id");
-                station.beforeStation = resultSet.getInt("before_station");
-                station.nextStation = resultSet.getInt("next_station");
-            }
-            //System.out.println("DB 연결 성공");
-        } catch (ClassNotFoundException e) {
-            System.out.println("드라이버 로드 에러");
-        } catch (SQLException e) {
-            System.out.println("DB 연결 에러");
-        }
-        return station;
-    }
-
-    subwayData getDownConnectStationDataDB(int stationDetailId) {
-        Connection conn = connectDatabase();
-        subwayData station = new subwayData();
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-            Statement stmt = conn.createStatement();
-            String strQuery;
-            strQuery = String.format("SELECT station_detail_id, station_name, station_code, line_id, before_station, next_station, " +
-                    "station_id FROM Subway.sub_line_name_info WHERE next_station = %d", stationDetailId);
-            java.sql.ResultSet resultSet = stmt.executeQuery(strQuery);
-            while(resultSet.next()) {
-                station.stationName = resultSet.getString("station_name");
-                station.stationCode = resultSet.getString("station_code");
-                station.stationDetailId = resultSet.getInt("station_detail_id");
-                station.lineId = resultSet.getInt("line_id");
-                station.beforeStation = resultSet.getInt("before_station");
-                station.nextStation = resultSet.getInt("next_station");
-            }
-            //System.out.println("DB 연결 성공");
-        } catch (ClassNotFoundException e) {
-            System.out.println("드라이버 로드 에러");
-        } catch (SQLException e) {
-            System.out.println("DB 연결 에러");
-        }
-        return station;
-    }
 
     ArrayList<timeTable> getScheduleDataDB(subwayData parent, subwayData child) {
         Connection conn = connectDatabase();
@@ -614,8 +606,8 @@ class databaseManager {
             Statement stmt = conn.createStatement();
             String strQuery;
             strQuery = String.format("SELECT station_detail_id, line_direction, subway_type, week_type, schedule_name, hour, minute, line_id " +
-                    "FROM Subway.sub_tt_line_%d WHERE station_detail_id = %d AND hour - %d <= 1 AND ((hour * 60 + minute) - (%d * 60 + %d)) >= 0 AND week_type = \'%s\' AND line_direction = %d AND subway_type = 'N' LIMIT 3 ",
-                    child.lineId, child.stationDetailId, parent.schedule.hour, parent.schedule.hour, parent.schedule.minute, parent.schedule.weekType, child.schedule.lineDirection);
+                    "FROM Subway.sub_tt_line_%d WHERE station_detail_id = %d AND hour - %d <= 1 AND ((hour * 60 + minute) - (%d * 60 + %d)) >= 0 AND week_type = \'%s\' AND line_direction = %d LIMIT 3 ",
+                    child.lineId, child.stationDetailId, parent.schedule.hour, parent.schedule.hour, parent.schedule.minute, parent.schedule.weekType, child.schedule.lineDirection, parent.schedule.typeName);
             System.out.println(strQuery);
             java.sql.ResultSet resultSet = stmt.executeQuery(strQuery);
             while(resultSet.next()) {
@@ -635,6 +627,36 @@ class databaseManager {
         }
         return schedules;
     }
+
+    timeTable getOneScheduleDataDB(subwayData parent, subwayData child, int i) {
+        Connection conn = connectDatabase();
+        timeTable schedule = new timeTable();
+        //time.calculateTime(parent.schedule.hour, parent.schedule.minute, child);
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+            Statement stmt = conn.createStatement();
+            String strQuery;
+            strQuery = String.format("SELECT station_detail_id, line_direction, subway_type, week_type, schedule_name, hour, minute, line_id " +
+                            "FROM Subway.sub_tt_line_%d WHERE station_detail_id = %d AND hour - %d <= 1 AND ((hour * 60 + minute) - (%d * 60 + %d)) >= 0 AND week_type = \'%s\' AND line_direction = %d AND subway_type = \'%s\' LIMIT 1 ",
+                    parent.lineId, child.stationDetailId, parent.candiSchedule[i].hour, parent.candiSchedule[i].hour, parent.candiSchedule[i].minute, parent.schedule.weekType, parent.candiSchedule[i].lineDirection, parent.candiSchedule[i].typeName);
+            System.out.println(strQuery);
+            java.sql.ResultSet resultSet = stmt.executeQuery(strQuery);
+            while(resultSet.next()) {
+                schedule.hour = resultSet.getInt("hour");
+                schedule.minute = resultSet.getInt("minute");
+                schedule.lineDirection = resultSet.getInt("line_direction");
+                schedule.weekType = resultSet.getString("week_type");
+                schedule.typeName = resultSet.getString("subway_type");
+                schedule.scheduleName = resultSet.getString("schedule_name");
+            }
+        } catch (ClassNotFoundException e) {
+            System.out.println("드라이버 로드 에러");
+        } catch (SQLException e) {
+            System.out.println("DB 연결 에러");
+        }
+        return schedule;
+    }
+
 }
 
 class timeAndDate {
