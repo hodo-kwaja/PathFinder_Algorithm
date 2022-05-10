@@ -22,6 +22,13 @@ class subwayData {
 
 }
 
+class transfer {
+    int startDetailId;
+    int finishDetailId;
+    int distance;
+    int timeSec;
+}
+
 /*열차 시간표*/
 class timeTable {
     int lineDirection;  //진행 방향
@@ -219,8 +226,10 @@ class Tree {
     boolean deleteDuplicationPath(subwayData parent, subwayData child) {
         boolean result = false;
         if(parent.lineId == child.lineId) { //parent와 child의 호선이 같으면
-            if(parent.schedule.lineDirection != child.schedule.lineDirection) { //자기가 전에 왔던 경로와 같은지 판단
-                result = true;  //진행
+            if(parent.schedule.lineDirection != child.schedule.lineDirection) {
+                if(parent.stationDetailId == child.stationDetailId) { //자기가 전에 왔던 경로와 같은지 판단
+                    result = true;  //중복
+                }
             }
         }
         return result;
@@ -344,6 +353,8 @@ class Tree {
             int beforeTime = convertTime(result.hour, result.minute);
             result = dbManager.getEndScheduleDataDB(parent, child.stationDetailId, lineDirection, i);
             int afterTime = convertTime(result.hour, result.minute);
+            result.numStep = parent.candiSchedule[i].numStep;
+            result.transferNum = parent.candiSchedule[i].transferNum;
             result.hour = parent.candiSchedule[i].hour;
             result.minute = parent.candiSchedule[i].minute;
             result.lineDirection = parent.candiSchedule[i].lineDirection;
@@ -359,6 +370,8 @@ class Tree {
             int beforeTime = convertTime(result.hour, result.minute);
             result = dbManager.getEndScheduleDataDB(parent, parent.stationDetailId, lineDirection,i);
             int afterTime = convertTime(result.hour, result.minute);
+            result.numStep = parent.candiSchedule[i].numStep;
+            result.transferNum = parent.candiSchedule[i].transferNum;
             result.hour = parent.candiSchedule[i].hour;
             result.minute = parent.candiSchedule[i].minute;
             result.lineDirection = parent.candiSchedule[i].lineDirection;
@@ -459,7 +472,7 @@ class Tree {
         while(true) {
             step = getStationDataWithId(nextStationDetailId);
             step.schedule.lineDirection = 1;
-            if(step.stationName.equals(destinationStationName)) {
+            if(step.stationName.equals(destinationStationName)) {   //목적지
                 schedules = getOneScheduleData(previous, step);
                 updateBestTime(step, schedules);
                 updatePathInfo(previous, step);//목적지
@@ -474,6 +487,7 @@ class Tree {
                     schedules = getOneScheduleData(previous, step);
                     updateBestTime(step, schedules);
                     updatePathInfo(previous, step);
+                    step.transfer = true;
                     addChild(parent, makeNode(step));
                     break;
                 }
@@ -510,6 +524,9 @@ class Tree {
             step = getStationDataWithId(nextStationDetailId);
             step.schedule.lineDirection = 0;
             if(step.stationName.equals(destinationStationName)) {   //목적지
+                schedules = getOneScheduleData(previous, step);
+                updateBestTime(step, schedules);
+                updatePathInfo(previous, step);
                 Node destination = makeNode(step);
                 addChild(parent,destination);
                 destination.isAlive = false;
@@ -521,6 +538,7 @@ class Tree {
                     schedules = getOneScheduleData(previous, step);
                     updateBestTime(step, schedules);
                     updatePathInfo(previous, step);
+                    step.transfer = true;
                     addChild(parent, makeNode(step));
                     break;
                 }
