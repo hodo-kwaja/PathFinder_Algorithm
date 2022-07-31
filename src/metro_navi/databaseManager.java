@@ -1,6 +1,7 @@
 /*
 * databaseManager
 * 데이터베이스 관련된 클래스
+* asfdasdf
 * */
 
 package metro_navi;
