@@ -5,6 +5,18 @@ import java.util.*;
 /*역 정보*/
 class subwayData {
 
+    subwayData() {}
+    subwayData(int SI, String SN, String SC, int SDI, int LI, int BS, int NS) {
+        stationId = SI;
+        stationName = SN;
+        stationCode = SC;
+        stationDetailId = SDI;
+        lineId = LI;
+        beforeStation = BS;
+        nextStation = NS;
+    }
+
+
     timeTable schedule = new timeTable();
     timeTable[] candiSchedule = new timeTable[3];
     String stationName; //역 이름
@@ -42,7 +54,9 @@ class timeTable {
     int duration;   //소요 시간
     int transferNum;    //환승 횟수
     int numStep;    //정류장 수
+
     float congest;  //혼잡도
+
     int congesetScore;  //혼잡도 환산 점수
     int updateId;   //시간표 바꾼 역 station_detail_id
 }
@@ -61,9 +75,9 @@ class Node {
 
 public class Metro_Navi {
     public static void main(String[] args) {
-        databaseManager dbManager = new databaseManager();
+        databaseManager.connectDatabase();
         ArrayList<subwayData> subData = new ArrayList<subwayData>();
-        String departureStaionName;
+        String departureStationName;
         String destinationStationName;
 
         timeAndDate time = new timeAndDate();

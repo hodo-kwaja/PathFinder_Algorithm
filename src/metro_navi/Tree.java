@@ -40,7 +40,7 @@ class Tree {
      *
      * 출력
      * - int convertTime : 변환된 시간*/
-    int convertTime (int hour, int minute) {
+    public static int convertTime (int hour, int minute) {
         int convertTime = hour * 60 + minute;
         return convertTime;
     }
@@ -168,12 +168,11 @@ class Tree {
                             //System.out.println("hello");
                         }
                         queue.add(child);
-                        if (finish) {
+                        if (path.size() == 3) {
                             return;
                         }
                     }
                     i++;
-
                 }
             }
         }
@@ -188,7 +187,7 @@ class Tree {
      *
      * 출력
      * - boolean result : true -> 중복임, false -> 중복 아님*/
-    boolean deleteDuplicationPath(subwayData parent, subwayData child) {
+    static boolean deleteDuplicationPath(subwayData parent, subwayData child) {
         boolean result = false;
         if(parent.lineId == child.lineId) { //parent와 child의 호선이 같으면
             if(parent.schedule.lineDirection != child.schedule.lineDirection) { //진행 방향이 다를 경우
@@ -228,7 +227,8 @@ class Tree {
      * 입력
      * - Node parent : 부모 노드*/
     void makeSubTree (Node parent) {
-        ArrayList<subwayData> possiblePath = getStationDataWithName(parent.data.stationName);   //역 이름으로 경로 탐색
+        ArrayList<subwayData> station = databaseManager.getStationDataWithNameDB(parent.data.stationName);   //역 검색
+        ArrayList<subwayData> possiblePath = searchPossiblePath(station);   //이동할 수 있는 경로 탐색
         int i = 0;
         while (i < possiblePath.size()) {   //탐색된 경로의 수만큼
             Node temp = makeNode(possiblePath.get(i));
@@ -297,7 +297,7 @@ class Tree {
      * - searchPossiblePath()를 통해 반환된 상,하행으로 분류된 경로*/
     ArrayList getStationDataWithName(String stationName) {
         ArrayList<subwayData> station = new ArrayList<>();
-        station = dbManager.getStationDataWithNameDB(stationName); //역 이름으로 역 검색
+        station = databaseManager.getStationDataWithNameDB(stationName); //역 이름으로 역 검색
         return searchPossiblePath(station);
     }
 
@@ -310,7 +310,7 @@ class Tree {
      * - subwayData station : 검색한 역의 데이터*/
     subwayData getStationDataWithId(int stationDetailId) {
         subwayData station = new subwayData();
-        station = dbManager.getStationDataWithIdDB(stationDetailId);    //station_detail_id로 역 검색
+        station = databaseManager.getStationDataWithIdDB(stationDetailId);    //station_detail_id로 역 검색
         return station;
     }
 
@@ -319,7 +319,7 @@ class Tree {
         timeTable result = null;
         if(parent.candiSchedule[i].lineDirection == 1) {
             lineDirection = 0;
-            result = dbManager.getEndScheduleDataDB(parent, parent.candiSchedule[i].updateId, lineDirection, i);
+            result = dbManager.getEndScheduleDataDB(parent, parent.stationDetailId, lineDirection, i);
             int beforeTime = convertTime(result.hour, result.minute);
             result = dbManager.getEndScheduleDataDB(parent, child.stationDetailId, lineDirection, i);
             int afterTime = convertTime(result.hour, result.minute);
@@ -338,7 +338,7 @@ class Tree {
             lineDirection = 1;
             result = dbManager.getEndScheduleDataDB(parent, child.stationDetailId, lineDirection, i);
             int beforeTime = convertTime(result.hour, result.minute);
-            result = dbManager.getEndScheduleDataDB(parent, parent.candiSchedule[i].updateId, lineDirection, i);
+            result = dbManager.getEndScheduleDataDB(parent, parent.stationDetailId, lineDirection, i);
             int afterTime = convertTime(result.hour, result.minute);
             result.numStep = parent.candiSchedule[i].numStep;
             result.transferNum = parent.candiSchedule[i].transferNum;
@@ -367,26 +367,12 @@ class Tree {
         while(i < station.size()) { //station의 수만큼
             subwayData temp = station.get(i);
             if(temp.nextStation != 0) { //nextStation의 값이 있으면 -> 하행선 경로가 있다
-                subwayData downStation = new subwayData();
-                downStation.stationId = temp.stationId;
-                downStation.stationName = temp.stationName;
-                downStation.stationCode = temp.stationCode;
-                downStation.stationDetailId = temp.stationDetailId;
-                downStation.lineId = temp.lineId;
-                downStation.beforeStation = temp.beforeStation;
-                downStation.nextStation = temp.nextStation;
+                subwayData downStation = new subwayData(temp.stationId, temp.stationName, temp.stationCode, temp.stationDetailId, temp.lineId, temp.beforeStation, temp.nextStation);
                 downStation.schedule.lineDirection = 0;
                 possiblePath.add(downStation);  //possiblePath에 경로 추가
             }
             if(temp.beforeStation != 0) {  //beforeStaion의 값이 있으면 -> 상행선 경로가 있다
-                subwayData upStation = new subwayData();
-                upStation.stationId = temp.stationId;
-                upStation.stationName = temp.stationName;
-                upStation.stationCode = temp.stationCode;
-                upStation.stationDetailId = temp.stationDetailId;
-                upStation.lineId = temp.lineId;
-                upStation.beforeStation = temp.beforeStation;
-                upStation.nextStation = temp.nextStation;
+                subwayData upStation = new subwayData(temp.stationId, temp.stationName, temp.stationCode, temp.stationDetailId, temp.lineId, temp.beforeStation, temp.nextStation);
                 upStation.schedule.lineDirection = 1;
                 possiblePath.add(upStation);   //possiblePath에 경로 추가
             }
@@ -408,7 +394,7 @@ class Tree {
                 else {
                     schedule = dbManager.getOneScheduleDataDB(parent, child, i); //parent 이후의 시간에서 child의 시간표를 1개 가져옴
                     try {
-                        if(schedule.scheduleName == null) {
+                        if(schedule.scheduleName == null) { //parent.candiSchedule[i]는 급행시간표인데 child가 급행역이 아닌 경우
                             child.candiSchedule[i] = parent.candiSchedule[i];
                         }
                         else {
@@ -461,9 +447,6 @@ class Tree {
             }
             else {  //목적지 아님
                 if (checkTransfer(step.stationName)) {   //환승역
-                    if(step.stationName.equals("마곡나루")) {
-                        //System.out.println("d");
-                    }
                     schedules = getOneScheduleData(previous, step);
                     updateBestTime(step, schedules);
                     updatePathInfo(previous, step);
@@ -472,10 +455,13 @@ class Tree {
                     break;
                 }
                 else {  //환승역 아님
+                    if(step.stationName.equals("하남검단산역")) {
+                        System.out.println("d");
+                    }
                     schedules = getOneScheduleData(previous, step);
                     updatePathInfo(previous, step);
                     updateBestTime(step, schedules);
-                    if (step.beforeStation == 0) {  //종점
+                    if (step.schedule.scheduleName.contains(step.stationName)) {  //종점
                         Node end = makeNode(step);
                         addChild(parent, end);
                         end.isAlive = false;
@@ -521,8 +507,8 @@ class Tree {
             }
             else {  //목적지 아님
                 if(checkTransfer(step.stationName)) {   //환승역
-                    if(step.stationName.equals("마곡나루")) {
-                        //System.out.println("d");
+                    if(step.stationName.equals("하남검단산역")) {
+                        System.out.println("d");
                     }
                     schedules = getOneScheduleData(previous, step);
                     updateBestTime(step, schedules);
@@ -535,7 +521,7 @@ class Tree {
                     schedules = getOneScheduleData(previous, step);
                     updatePathInfo(previous, step);
                     updateBestTime(step, schedules);
-                    if (step.nextStation == 0) {    //종점
+                    if (step.schedule.scheduleName.contains(step.stationName)) {    //종점
                         Node end = makeNode(step);
                         addChild(parent, end);
                         end.isAlive = false;

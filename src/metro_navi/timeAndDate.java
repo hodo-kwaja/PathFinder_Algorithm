@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 class timeAndDate {
-
     int hour;
     int minute;
     char weekType;
