@@ -104,6 +104,9 @@ class Tree {
      * - true -> 시간표 있음, false -> 시간표 없음*/
     ArrayList getScheduleData(subwayData parent, subwayData child) {
         ArrayList<timeTable> schedules;
+        if(child.stationDetailId == 463) {
+            System.out.println("here");
+        }
         schedules = dbManager.getScheduleDataDB(parent, child); //parent 이후의 시간에서 child의 시간표를 3개 가져옴
         try {
             return refineSchedule(schedules);
@@ -168,7 +171,7 @@ class Tree {
                             //System.out.println("hello");
                         }
                         queue.add(child);
-                        if (path.size() == 3) {
+                        if (path.size() == 1) {
                             return;
                         }
                     }
@@ -321,7 +324,12 @@ class Tree {
             lineDirection = 0;
             result = dbManager.getEndScheduleDataDB(parent, parent.stationDetailId, lineDirection, i);
             int beforeTime = convertTime(result.hour, result.minute);
-            result = dbManager.getEndScheduleDataDB(parent, child.stationDetailId, lineDirection, i);
+            if(parent.candiSchedule[i].typeName.equals("S")) {
+                result = dbManager.getEndScheduleDataDB(parent, child.candiSchedule[i].updateId, lineDirection, i);
+            }
+            else {
+                result = dbManager.getEndScheduleDataDB(parent, parent.stationDetailId, lineDirection, i);
+            }
             int afterTime = convertTime(result.hour, result.minute);
             result.numStep = parent.candiSchedule[i].numStep;
             result.transferNum = parent.candiSchedule[i].transferNum;
@@ -338,7 +346,12 @@ class Tree {
             lineDirection = 1;
             result = dbManager.getEndScheduleDataDB(parent, child.stationDetailId, lineDirection, i);
             int beforeTime = convertTime(result.hour, result.minute);
-            result = dbManager.getEndScheduleDataDB(parent, parent.stationDetailId, lineDirection, i);
+            if(parent.candiSchedule[i].typeName.equals("S")) {
+                result = dbManager.getEndScheduleDataDB(parent, parent.candiSchedule[i].updateId, lineDirection, i);
+            }
+            else {
+                result = dbManager.getEndScheduleDataDB(parent, parent.stationDetailId, lineDirection, i);
+            }
             int afterTime = convertTime(result.hour, result.minute);
             result.numStep = parent.candiSchedule[i].numStep;
             result.transferNum = parent.candiSchedule[i].transferNum;
@@ -429,6 +442,9 @@ class Tree {
         while(true) {
             step = getStationDataWithId(nextStationDetailId);
             step.schedule.lineDirection = 1;
+            if(step.stationDetailId == 465) {
+                System.out.println("d");
+            }
             if(step.stationName.equals(destinationStationName)) {   //목적지
                 schedules = getOneScheduleData(previous, step);
                 updateBestTime(step, schedules);
@@ -455,9 +471,7 @@ class Tree {
                     break;
                 }
                 else {  //환승역 아님
-                    if(step.stationName.equals("하남검단산역")) {
-                        System.out.println("d");
-                    }
+
                     schedules = getOneScheduleData(previous, step);
                     updatePathInfo(previous, step);
                     updateBestTime(step, schedules);
@@ -489,6 +503,9 @@ class Tree {
         while(true) {
             step = getStationDataWithId(nextStationDetailId);
             step.schedule.lineDirection = 0;
+            if(step.stationDetailId == 465) {
+                System.out.println("d");
+            }
             if(step.stationName.equals(destinationStationName)) {   //목적지
                 schedules = getOneScheduleData(previous, step);
                 updateBestTime(step, schedules);
@@ -507,9 +524,6 @@ class Tree {
             }
             else {  //목적지 아님
                 if(checkTransfer(step.stationName)) {   //환승역
-                    if(step.stationName.equals("하남검단산역")) {
-                        System.out.println("d");
-                    }
                     schedules = getOneScheduleData(previous, step);
                     updateBestTime(step, schedules);
                     updatePathInfo(previous, step);

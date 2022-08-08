@@ -212,4 +212,26 @@ class databaseManager {
             System.out.println("DB 연결 에러");
         }
     }
+
+    public static void getCongestDataDB(int parentStationDetailId, int childStationDetailId, transfer transferInfo) {
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+            Statement stmt = conn.createStatement();
+            String strQuery;
+            strQuery = String.format("SELECT start_station_detail_id, finish_station_detail_id, time_sec, distance " +
+                            "FROM Subway.sub_transfer WHERE start_station_detail_id = %d AND finish_station_detail_id = %d",
+                    parentStationDetailId, childStationDetailId);
+            java.sql.ResultSet resultSet = stmt.executeQuery(strQuery);
+            while(resultSet.next()) {
+                transferInfo.startDetailId = resultSet.getInt("start_station_detail_id");
+                transferInfo.finishDetailId = resultSet.getInt("finish_station_detail_id");
+                transferInfo.distance = resultSet.getInt("distance");
+                transferInfo.timeSec = resultSet.getInt("time_sec");
+            }
+        } catch (ClassNotFoundException e) {
+            System.out.println("드라이버 로드 에러");
+        } catch (SQLException e) {
+            System.out.println("DB 연결 에러");
+        }
+    }
 }

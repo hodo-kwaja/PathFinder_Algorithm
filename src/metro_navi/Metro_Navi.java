@@ -106,20 +106,48 @@ public class Metro_Navi {
             Node temp;
             subwayData temp1;
             temp = tree.path.get(i);
-            System.out.print(temp.data.stationName + "(호선 : " + temp.data.lineId + ", 타입 :" + temp.data.schedule.typeName + ", 시간 :" + temp.data.schedule.hour + "시 " + temp.data.schedule.minute + "분 )\n");
-            while(true) {
+
+            System.out.println("\"ShortestPath\" : [");
+            System.out.println("    {");
+            System.out.print("        \"stationName\" : \"" + temp.data.stationName + "\",\n" + "        \"stationCode\" : \"" + temp.data.stationCode + "\",\n" + "        \"lineId\" : \"" + temp.data.lineId + "\",\n" + "        \"schedule\" : {\n");
+            System.out.print("            \"lineDirection\" : \"" + temp.data.schedule.lineDirection + "\",\n" + "            \"weekType\" : \"" + temp.data.schedule.weekType + "\",\n" + "            \"hour\" : " + temp.data.schedule.hour + ",\n" +
+                    "            \"minute\" : " + temp.data.schedule.minute + ",\n" + "            \"typeName\" : \"" + temp.data.schedule.typeName + "\",\n" + "            \"scheduleName\" : \"" + temp.data.schedule.scheduleName + "\",\n" + "            \"congest\" : \"" + temp.data.schedule.congest + "\",\n"
+                    + "        }\n" + "        \"transfer\" : {\n");
+            System.out.print("            \"isTranfer\" : " + temp.data.transfer + ",\n" + "            \"transferDistance\" : " + temp.data.transferInfo.distance + ",\n            \"transferTime\" : " + temp.data.transferInfo.timeSec + "\n        }\n    }\n");
+            while (true) {
                 if (temp.beforeNode != null) {
-                    if(temp.beforeNode.beforeNode == null) {
+                    if (temp.beforeNode.beforeNode == null) {
                         System.out.println("출발 : " + tree.root.data.schedule.hour + "시 " + tree.root.data.schedule.minute + "분\n");
                         break;
-                    }
-                    else {
+                    } else {
                         if (temp.data.stationId != temp.beforeNode.data.stationId) {
+                            for (subwayData data : temp.beforeNode.step) {
+                                System.out.println("    {");
+                                System.out.print("        \"stationName\" : \"" + data.stationName + "\",\n" + "        \"stationCode\" : \"" + data.stationCode + "\",\n" + "        \"lineId\" : \"" + data.lineId + "\",\n" + "        \"schedule\" : {\n");
+                                System.out.print("            \"lineDirection\" : \"" + data.schedule.lineDirection + "\",\n" + "            \"weekType\" : \"" + data.schedule.weekType + "\",\n" + "            \"hour\" : " + data.schedule.hour + ",\n" +
+                                        "            \"minute\" : " + data.schedule.minute + ",\n" + "            \"typeName\" : \"" + data.schedule.typeName + "\",\n" + "            \"scheduleName\" : \"" + data.schedule.scheduleName + "\",\n" + "            \"congest\" : \"" + data.schedule.congest + "\",\n"
+                                        + "        }\n" + "        \"transfer\" : {\n");
+                                System.out.print("            \"isTranfer\" : " + data.transfer + ",\n" + "            \"transferDistance\" : " + data.transferInfo.distance + ",\n            \"transferTime\" : " + data.transferInfo.timeSec + "\n        }\n    }\n");
+                            }
+
                             temp = temp.beforeNode;
-                            System.out.print(" ↑ " + temp.data.stationName + "(호선 : " + temp.data.lineId + ", 타입 :" + temp.data.schedule.typeName + ", 시간 : " + temp.data.schedule.hour + "시 " + temp.data.schedule.minute + "분 ) \n");
-                        }
-                        else {
+                            System.out.println("    {");
+                            System.out.print("        \"stationName\" : \"" + temp.data.stationName + "\",\n" + "        \"stationCode\" : \"" + temp.data.stationCode + "\",\n" + "        \"lineId\" : \"" + temp.data.lineId + "\",\n" + "        \"schedule\" : {\n");
+                            System.out.print("            \"lineDirection\" : \"" + temp.data.schedule.lineDirection + "\",\n" + "            \"weekType\" : \"" + temp.data.schedule.weekType + "\",\n" + "            \"hour\" : " + temp.data.schedule.hour + ",\n" +
+                                    "            \"minute\" : " + temp.data.schedule.minute + ",\n" + "            \"typeName\" : \"" + temp.data.schedule.typeName + "\",\n" + "            \"scheduleName\" : \"" + temp.data.schedule.scheduleName + "\",\n" + "            \"congest\" : \"" + temp.data.schedule.congest + "\",\n"
+                                    + "        }\n" + "        \"transfer\" : {\n");
+                            System.out.print("            \"isTranfer\" : " + temp.data.transfer + ",\n" + "            \"transferDistance\" : " + temp.data.transferInfo.distance + ",\n            \"transferTime\" : " + temp.data.transferInfo.timeSec + "\n        }\n    }\n");
+                            for (subwayData data : temp.beforeNode.step) {
+                                System.out.println("    {");
+                                System.out.print("        \"stationName\" : \"" + data.stationName + "\",\n" + "        \"stationCode\" : \"" + data.stationCode + "\",\n" + "        \"lineId\" : \"" + data.lineId + "\",\n" + "        \"schedule\" : {\n");
+                                System.out.print("            \"lineDirection\" : \"" + data.schedule.lineDirection + "\",\n" + "            \"weekType\" : \"" + data.schedule.weekType + "\",\n" + "            \"hour\" : " + data.schedule.hour + ",\n" +
+                                        "            \"minute\" : " + data.schedule.minute + ",\n" + "            \"typeName\" : \"" + data.schedule.typeName + "\",\n" + "            \"scheduleName\" : \"" + data.schedule.scheduleName + "\",\n" + "            \"congest\" : \"" + data.schedule.congest + "\",\n"
+                                        + "        }\n" + "        \"transfer\" : {\n");
+                                System.out.print("            \"isTranfer\" : " + data.transfer + ",\n" + "            \"transferDistance\" : " + data.transferInfo.distance + ",\n            \"transferTime\" : " + data.transferInfo.timeSec + "\n        }\n    }\n");
+                            }
+                        } else {
                             temp = temp.beforeNode;
+
                         }
                     }
                 } else {
@@ -127,9 +155,8 @@ public class Metro_Navi {
                     break;
                 }
             }
-
         }
+    }
 /*        //subData = dbManager.getStationData(departureStaionName);
         subData = tree.getStationData(departureStaionName);*/
-    }
 }
